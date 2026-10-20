@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.pcap -text
+*.jpg -text
+*.png -text
+# Markdown hard line breaks and verbatim third-party license text are intentional.
+*.md whitespace=-blank-at-eol
+internal/server/web/*licenses.txt -text -whitespace

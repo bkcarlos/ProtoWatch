@@ -1,0 +1,12 @@
+/bin/
+/dist/
+/frontend/node_modules/
+__pycache__/
+*.pyc
+*.pcap
+*.pcapng
+!testdata/*.pcap
+!internal/server/web/*demo.pcap
+!frontend/public/*demo.pcap
+*.log
+.DS_Store

@@ -1,0 +1,13 @@
+{
+  "ports": [30501, 30502, 30503, 30504],
+  "services": {
+    "0x1234": {
+      "name": "VehicleStatus",
+      "methods": {"0x0001": "GetTemperature", "0x8001": "TemperatureChanged"},
+      "eventgroups": {"0x0001": "Telemetry", "0x0002": "Diagnostics"}
+    },
+    "0x2000": {"name": "StoppedService"},
+    "0x3000": {"name": "ExpiredService"},
+    "0x4000": {"name": "UndiscoveredService"}
+  }
+}

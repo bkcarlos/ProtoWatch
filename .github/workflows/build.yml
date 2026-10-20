@@ -1,0 +1,120 @@
+name: Build and test
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  frontend:
+    name: Vue frontend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci --no-audit --no-fund
+      - run: npm --prefix frontend test
+      - run: npm --prefix frontend run build
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: frontend-dist
+          path: internal/server/web/
+          if-no-files-found: error
+          retention-days: 7
+
+  binaries:
+    name: ${{ matrix.target }}
+    needs: frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-amd64
+            runner: ubuntu-24.04
+            extension: ''
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+            extension: ''
+          - target: darwin-amd64
+            runner: macos-15-intel
+            extension: ''
+          - target: darwin-arm64
+            runner: macos-15
+            extension: ''
+          - target: windows-amd64
+            runner: windows-2025
+            extension: '.exe'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    env:
+      TARGET: ${{ matrix.target }}
+      BINARY_EXTENSION: ${{ matrix.extension }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Remove checked-in web build before downloading this run's assets
+        run: rm -rf internal/server/web
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: frontend-dist
+          path: internal/server/web/
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+      - name: Verify native target and Go dependencies
+        run: |
+          test "$(go env GOOS)-$(go env GOARCH)" = "$TARGET"
+          go mod download
+          go mod verify
+      - run: go vet ./...
+      - name: Tests with race detector
+        run: go test -race ./...
+      - name: Set build version
+        run: |
+          version="git-${GITHUB_SHA:0:7}"
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            version="$GITHUB_REF_NAME"
+          fi
+          if [[ ! "$version" =~ ^[A-Za-z0-9][A-Za-z0-9.+_-]{0,127}$ ]]; then
+            echo "Unsupported version identifier" >&2
+            exit 1
+          fi
+          echo "BUILD_VERSION=$version" >> "$GITHUB_ENV"
+      - name: Build single binary and package with checksums
+        run: python tools/build.py "$TARGET" --version "$BUILD_VERSION" --commit "$GITHUB_SHA"
+      - name: Run compiled binary, embedded UI and offline PCAP smoke test
+        run: python tools/smoke.py "dist/proto-watch_${BUILD_VERSION}_${TARGET}/proto-watch${BINARY_EXTENSION}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: proto-watch-${{ matrix.target }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
