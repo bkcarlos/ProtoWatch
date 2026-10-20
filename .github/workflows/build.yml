@@ -118,3 +118,46 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
+
+  release:
+    name: Publish GitHub Release
+    if: github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v')
+    needs: binaries
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: proto-watch-*
+          merge-multiple: true
+          path: dist/release/
+      - name: Verify all five packages and generate checksum manifest
+        run: python3 tools/verify_release.py dist/release "$RELEASE_TAG" "$GITHUB_SHA"
+      - name: Publish packages and release notes
+        shell: bash
+        run: |
+          notes="docs/releases/${RELEASE_TAG}.md"
+          args=(--generate-notes)
+          if [[ -f "$notes" ]]; then
+            args=(--notes-file "$notes")
+          fi
+          if gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft > "$RUNNER_TEMP/release-draft"; then
+            if [[ "$(cat "$RUNNER_TEMP/release-draft")" != "true" ]]; then
+              echo "Release is already published; existing assets remain unchanged."
+              exit 0
+            fi
+            gh release upload "$RELEASE_TAG" dist/release/* --clobber
+          else
+            gh release create "$RELEASE_TAG" dist/release/* --verify-tag \
+              --draft --title "ProtoWatch ${RELEASE_TAG}" "${args[@]}"
+          fi
+          gh release edit "$RELEASE_TAG" --draft=false

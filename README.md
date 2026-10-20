@@ -25,7 +25,9 @@ macOS 与 Windows 只支持离线文件；实时采集在 Linux 上执行。
 
 ## 下载与跨平台编译
 
-打开 [GitHub Actions](https://github.com/bkcarlos/ProtoWatch/actions/workflows/build.yml)，选择成功的运行，在 **Artifacts** 下载对应平台的压缩包及 SHA-256 校验文件。解开 Actions 外层 ZIP，再解开其中的平台压缩包，得到 `proto-watch` 或 `proto-watch.exe`。运行只需要该二进制，随包文档与许可用于说明和分发。
+正式版本从 [GitHub Releases](https://github.com/bkcarlos/ProtoWatch/releases/latest) 下载对应平台的压缩包及 SHA-256 校验文件，直接解压即可得到 `proto-watch` 或 `proto-watch.exe`。运行只需要该二进制，随包文档与许可用于说明和分发。
+
+开发版本也可从 [GitHub Actions](https://github.com/bkcarlos/ProtoWatch/actions/workflows/build.yml) 成功运行的 **Artifacts** 下载，需要先解开 Actions 外层 ZIP，再解开其中的平台压缩包。
 
 | 平台 | Artifact | 能力 |
 | --- | --- | --- |
@@ -37,7 +39,9 @@ macOS 与 Windows 只支持离线文件；实时采集在 Linux 上执行。
 
 Linux / macOS 解压后运行 `./proto-watch --pcap-dir /path/to/captures`；Windows PowerShell 运行 `.\proto-watch.exe --pcap-dir C:\captures`，然后打开 http://127.0.0.1:8080。启动目录也可直接放置 `.pcap` 文件。
 
-流水线在 `master` / `main` 推送、Pull Request、`v*` 标签推送以及手动触发时执行。前端只构建一次，5 个原生平台分别执行 Go 检查、race 测试、无 CGO 编译以及实际启动程序的 HTTP / PCAP 冒烟验证。产物保存 30 天；当前生成 Actions Artifacts，不自动创建 Release。`--version` 和 API 返回版本与提交号。
+流水线在 `master` / `main` 推送、Pull Request、`v*` 标签推送以及手动触发时执行。前端只构建一次，5 个原生平台分别执行 Go 检查、race 测试、无 CGO 编译以及实际启动程序的 HTTP / PCAP 冒烟验证。Actions 产物保存 30 天；`v*` 标签的全部构建通过后，会校验 5 个安装包的版本、提交号与 SHA-256，再自动发布 GitHub Release，附安装包、单独校验文件与 `SHA256SUMS`。Release 附件不受 Actions 的 30 天保留期影响。`--version` 和 API 返回版本与提交号。
+
+发布说明优先读取 `docs/releases/<标签>.md`，没有对应文件时自动生成。发布步骤先上传到草稿，再正式发布；重跑不会覆盖已发布版本。新增版本时创建并推送对应的 `v*` 标签即可。
 
 本地跨平台打包需要 Go、Node.js 和 Python 3（标准库即可）：
 
