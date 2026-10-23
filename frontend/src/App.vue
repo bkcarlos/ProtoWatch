@@ -65,7 +65,7 @@ onUnmounted(() => { detailRequest++; client.dispose(); window.removeEventListene
             <ElIcon><component :is="item.icon" /></ElIcon><span>{{ item.label }}</span><span class="nav-count">{{ item.count }}</span>
           </ElMenuItem>
         </ElMenu>
-        <div class="sidebar-bottom"><ElTag type="info" effect="plain" size="small">被动观察模式</ElTag><p>仅呈现捕获范围内的流量<br>不创建 DDS 参与者</p><small>MVP 0.2 · Linux ARM64</small></div>
+        <div class="sidebar-bottom"><ElTag type="info" effect="plain" size="small">被动观察模式</ElTag><p>仅呈现捕获范围内的流量<br>不创建 DDS 参与者</p><small>MVP 0.2.1 · Linux ARM64</small></div>
       </aside>
       <div class="main-area">
         <header class="topbar"><ElBreadcrumb separator="/"><ElBreadcrumbItem>工作空间</ElBreadcrumbItem><ElBreadcrumbItem>{{ protocol === 'dds' ? 'DDS' : 'SOME/IP' }} 网络观察</ElBreadcrumbItem></ElBreadcrumb><div class="protocol-controls"><ElRadioGroup v-model="protocol" size="small" aria-label="协议选择"><ElRadioButton value="dds">DDS</ElRadioButton><ElRadioButton value="someip">SOME/IP</ElRadioButton></ElRadioGroup><ElTag :type="connected ? 'success' : 'danger'" effect="light" round><span class="status-dot" />{{ connected ? '设备已连接' : '连接不可用' }}</ElTag></div></header>
@@ -76,9 +76,17 @@ onUnmounted(() => { detailRequest++; client.dispose(); window.removeEventListene
             <div class="source-controls">
               <div class="capture-controls"><label for="capture-interface">采集网卡</label><ElSelect id="capture-interface" v-model="selectedInterface" filterable placeholder="选择网卡" aria-label="采集网卡" :disabled="running || busy" class="interface-select"><ElOption v-for="item in interfaces" :key="item.name" :value="item.name" :label="`${item.name} · ${item.addresses[0] || '无地址'}`" :disabled="!item.up || item.loopback" /></ElSelect>
               <ElTooltip :disabled="liveSupported || running" content="实时采集需要在 Linux 设备上运行"><span><ElButton v-if="!running" type="primary" :icon="VideoPlay" :disabled="!liveSupported || !selectedInterface || busy || !connected" @click="client.startCapture">开始观察</ElButton><ElButton v-else-if="!uploading" type="danger" plain :icon="VideoPause" :disabled="busy" @click="client.stopCapture">{{ state?.mode === 'file' ? '停止解析' : '停止采集' }}</ElButton></span></ElTooltip></div>
-              <div class="import-controls"><ElButton v-if="uploading" type="danger" plain @click="client.cancelUpload">取消导入</ElButton><ElButton :icon="Upload" :disabled="running || busy || !connected" @click="fileInput?.click()">浏览器上传</ElButton><input ref="fileInput" type="file" accept=".pcap,.cap" hidden @change="uploadInput"><ElButton type="primary" plain :loading="busy" :disabled="running || !connected" @click="client.demo(protocol)">{{ protocol === 'dds' ? '试用合成示例' : '试用混合示例' }}</ElButton></div>
             </div>
-            <ServerFilePicker :files="client.serverFiles.value" :directory="client.serverDirectory.value" :loading="client.filesLoading.value" :error="client.filesError.value" :truncated="client.filesTruncated.value" :disabled="running || busy || !connected" v-model="client.selectedServerFile.value" @refresh="client.loadServerFiles" @open="client.openServerFile" />
+            <ServerFilePicker v-if="state?.mode !== 'live' || state.status !== 'running'" :files="client.serverFiles.value" :directory="client.serverDirectory.value" :loading="client.filesLoading.value" :error="client.filesError.value" :truncated="client.filesTruncated.value" :disabled="running || busy || !connected" v-model="client.selectedServerFile.value" @refresh="client.loadServerFiles" @open="client.openServerFile" />
+            <div class="import-controls" role="group" aria-label="其他导入方式">
+              <span class="import-label">其他方式</span>
+              <div class="import-actions">
+                <ElButton v-if="uploading" type="danger" plain @click="client.cancelUpload">取消导入</ElButton>
+                <ElButton :icon="Upload" :disabled="running || busy || !connected" @click="fileInput?.click()">浏览器上传</ElButton>
+                <ElButton type="primary" text :icon="DataLine" :loading="busy" :disabled="running || !connected" @click="client.demo(protocol)">{{ protocol === 'dds' ? '试用合成示例' : '试用混合示例' }}</ElButton>
+              </div>
+              <input ref="fileInput" type="file" accept=".pcap,.cap" hidden @change="uploadInput">
+            </div>
             <div class="source-help">{{ liveSupported ? '单网卡被动采集 · 需要 CAP_NET_RAW 权限' : '当前主机支持离线分析；实时采集请在 Linux 设备上运行。' }}<span>支持拖入 PCAP · 上传上限 {{ bytes(maxImportBytes) }}</span></div>
             <p v-if="state?.mode === 'file' && (state.import_bytes > 0 || state.status === 'importing')" class="import-progress" role="status">已读取 {{ bytes(state.import_bytes || 0) }}{{ state.import_total > 0 ? ` / ${bytes(state.import_total)}` : '' }} · 已解析 {{ number(state.packets) }} 包{{ state.status === 'importing' ? ' · 逐包解析中' : state.status !== 'complete' ? ' · 部分结果' : '' }}</p>
           </ElCard>
