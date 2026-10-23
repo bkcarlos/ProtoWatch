@@ -16,7 +16,7 @@ TARGETS = ("linux-amd64", "linux-arm64", "darwin-amd64", "darwin-arm64", "window
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target", choices=TARGETS)
-    parser.add_argument("--version", default="0.2.1-mvp")
+    parser.add_argument("--version", default="0.2.2-mvp")
     parser.add_argument("--commit", default="development")
     args = parser.parse_args()
     for value in (args.version, args.commit):

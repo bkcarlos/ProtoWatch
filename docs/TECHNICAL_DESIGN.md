@@ -288,3 +288,16 @@ PCAP 全局头仅预读 24 字节，再用 `pcapgo.Reader.ZeroCopyReadPacketData
 `packet.Decode` 保留 TCP 序列号及 SYN / ACK / FIN / RST 标志，`someip/tcp.go` 按四元组、方向和 SYN 跟踪连接。连续字节按 SOME/IP Length + 8 拆帧，支持跨包、粘包、有限乱序和重传去重。采集入口保持共用，实时和离线使用同一条解析路径。
 
 每消息 4 MiB、256 个连接、全局 32 MiB 缓存内容，每方向 128 个乱序段 / 256 KiB 前向窗口；空闲 60 秒清理。缺口不跨越，未知边界不猜测，错误及超限停止该方向；结束会话清空残缺缓存并保留提示。TCP / UDP 实例关联按对应 SD 端点匹配，详情和导出均带传输方式。完整语义与限制见 [SOME/IP 文档](SOMEIP.md#tcp-重组语义)。
+
+
+## GitHub Release 自更新
+
+`internal/update` 负责固定仓库 `bkcarlos/ProtoWatch` 的稳定版本检查、平台包选择、下载、校验、备份和替换。服务端只接受已检查且高于当前版本的标签，不接受客户端传入下载 URL 或路径。版本按三段数字比较；同一基础版本的稳定发布高于带开发后缀的构建，不执行降级。
+
+接口：`GET /api/update` 查询当前版本、平台和状态；`POST /api/update/check` 检查最新稳定 Release；`POST /api/update/install` 提交 `{ "version": "vX.Y.Z" }` 后返回 202。安装在后台执行，互斥拒绝重复操作；原有同源请求检查同样适用。状态包含 idle/checking/downloading/installing/restarting/error，网页轮询状态并在版本改变后提示刷新。
+
+HTTPS 下载只允许 GitHub API、GitHub 与官方 Release 资源域名，安装包及独立校验文件必须来自固定仓库的对应标签。元数据限制 2 MiB、校验文件 4 KiB、压缩包 128 MiB、二进制 256 MiB。只提取预期路径下的普通可执行文件，不按照压缩包路径写入文件系统。核对压缩包大小与 SHA-256 后执行暂存二进制的 `--version`，匹配标签才可替换。校验信任 HTTPS 和官方仓库，不等同于独立发行者签名。
+
+暂存文件位于可执行文件同目录所在文件系统；旧文件改名留作备份，新文件替换失败时恢复旧文件。Linux 检查并保留文件 capability，无法恢复时在替换前失败。下载、校验期间继续提供采集服务，成功替换后通知 main 停止采集并关闭 HTTP。Linux/macOS 使用 exec 保留 PID，Windows 拉起新进程；原启动参数和环境延续。运行状态及网页临时配置不持久化，页面确认提示必须明确这一点。重启失败需手动恢复备份，不宣称提供健康检查自动回滚。
+
+测试覆盖版本比较、固定仓库 URL、平台附件缺失、非稳定版本、响应大小、tar/zip 路径及符号链接、SHA-256 错误、无效可执行文件、替换失败恢复、完整安装和并发安装互斥。原生 CI 的 race 测试在五个平台执行同一更新测试。

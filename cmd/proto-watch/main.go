@@ -17,6 +17,7 @@ import (
 	"github.com/bkcarlos/ProtoWatch/internal/buildinfo"
 	"github.com/bkcarlos/ProtoWatch/internal/server"
 	"github.com/bkcarlos/ProtoWatch/internal/someip"
+	"github.com/bkcarlos/ProtoWatch/internal/update"
 )
 
 func main() {
@@ -47,7 +48,9 @@ func main() {
 	if *maxImport < 1 || *maxImport > (1<<53-1)/(1024*1024) {
 		log.Fatal("--max-import-mib must be between 1 and 8589934591")
 	}
+	restart := make(chan struct{})
 	s := server.New()
+	s.Updater = update.New(buildinfo.Version, func() { close(restart) })
 	s.MaxImportBytes = *maxImport * 1024 * 1024
 	if err = s.SetPCAPDir(*pcapDir); err != nil {
 		log.Fatal(err)
@@ -80,8 +83,13 @@ func main() {
 	srv := &http.Server{Addr: *listen, Handler: s.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 60 * time.Second, WriteTimeout: 90 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	shutdownDone := make(chan struct{})
 	go func() {
-		<-ctx.Done()
+		defer close(shutdownDone)
+		select {
+		case <-ctx.Done():
+		case <-restart:
+		}
 		s.Stop()
 		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -102,6 +110,15 @@ func main() {
 		err = srv.ListenAndServe()
 	}
 	s.Stop()
+	select {
+	case <-restart:
+		<-shutdownDone
+		if err := s.Updater.Restart(); err != nil {
+			log.Fatalf("restart failed; start the new binary manually: %v", err)
+		}
+		return
+	default:
+	}
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}

@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { createWatchClient } from './composables/useWatch'
 import { number, statuses, time, bytes } from './format'
+import UpdatePanel from './components/UpdatePanel.vue'
 import ServerFilePicker from './components/ServerFilePicker.vue'
 import type { SampleDetail, Tab, Topic, Protocol, SomeIPTab } from './types'
 import ObservationTable from './components/ObservationTable.vue'
@@ -65,7 +66,7 @@ onUnmounted(() => { detailRequest++; client.dispose(); window.removeEventListene
             <ElIcon><component :is="item.icon" /></ElIcon><span>{{ item.label }}</span><span class="nav-count">{{ item.count }}</span>
           </ElMenuItem>
         </ElMenu>
-        <div class="sidebar-bottom"><ElTag type="info" effect="plain" size="small">被动观察模式</ElTag><p>仅呈现捕获范围内的流量<br>不创建 DDS 参与者</p><small>MVP 0.2.1 · Linux ARM64</small></div>
+        <div class="sidebar-bottom"><ElTag type="info" effect="plain" size="small">被动观察模式</ElTag><p>仅呈现捕获范围内的流量<br>不创建 DDS 参与者</p><UpdatePanel /></div>
       </aside>
       <div class="main-area">
         <header class="topbar"><ElBreadcrumb separator="/"><ElBreadcrumbItem>工作空间</ElBreadcrumbItem><ElBreadcrumbItem>{{ protocol === 'dds' ? 'DDS' : 'SOME/IP' }} 网络观察</ElBreadcrumbItem></ElBreadcrumb><div class="protocol-controls"><ElRadioGroup v-model="protocol" size="small" aria-label="协议选择"><ElRadioButton value="dds">DDS</ElRadioButton><ElRadioButton value="someip">SOME/IP</ElRadioButton></ElRadioGroup><ElTag :type="connected ? 'success' : 'danger'" effect="light" round><span class="status-dot" />{{ connected ? '设备已连接' : '连接不可用' }}</ElTag></div></header>

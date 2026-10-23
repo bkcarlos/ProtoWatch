@@ -56,6 +56,20 @@ python3 tools/build.py windows-amd64
 
 产物位于 `dist/`，Linux / macOS 为 `.tar.gz`，Windows 为 `.zip`，每份附 `.sha256`。Windows 本地构建可先执行 `npm --prefix frontend ci` 和 `npm --prefix frontend run build`，再用 `python tools/build.py windows-amd64`，无需 Make。macOS / Windows 产物暂未进行发行者签名或公证。
 
+## 从网页更新版本
+
+左侧栏点击 **版本更新 → 检查更新**，程序会读取 `bkcarlos/ProtoWatch` 的最新稳定 Release，并按当前系统和 CPU 架构选择安装包。不需要 GitHub 令牌，也不会定时安装或自动升级。
+
+确认保存观察数据后，勾选提示并点击 **安装并重启**。后台下载安装包及 `.sha256`，校验大小、SHA-256 和二进制版本，再备份并替换程序。网页显示进度，重新连接后点击“刷新页面”加载新版界面。校验或替换失败时保留原程序；替换失败会尝试恢复备份。
+
+- 首次使用此功能，需要手动安装包含更新入口的版本；v0.2.1 及更早版本没有更新接口。
+- 更新需要设备能访问 GitHub API 和 Release 下载域名，以及运行用户有程序目录的写权限。使用编译后的二进制部署；未知版本号的开发构建不能自动判断升级关系。
+- 重启保留原命令行参数与工作目录。命令行指定的实时采集会再次启动，`--read` 文件会从头解析；当前内存记录、网页中临时修改的网卡和 SOME/IP 映射不会保留。请先导出快照，持久映射使用 `--someip-map`。
+- Linux/macOS 通过替换进程保持 PID；Windows 启动新进程后退出旧进程。Windows 以普通程序运行，尚不支持 Windows Service 托管下的自更新。
+- Linux 使用 `setcap` 时，更新进程必须能为新程序恢复原文件 capability，否则更新会拒绝替换。建议用 systemd 的 `AmbientCapabilities=CAP_NET_RAW` 配合可写程序目录，避免依赖文件 capability。
+- 旧程序保存在原目录的 `<程序名>.backup-<时间>`。确认新版可用后可手动删除；如新版启动异常，停止服务后用备份替换程序并重新启动。当前不提供启动健康检查后的自动回滚。
+- 更新只替换包含网页的二进制，不修改 PCAP 文件和外部配置。无登录模式下，能够访问网页/API 的用户也能触发官方版本升级；保持默认本机监听并通过 SSH 转发访问即可。
+
 ## 构建 Linux ARM64 程序
 
 开发机构建需要 Go 和 Node.js（20.19+ 的 20.x，或 22.12+）；设备运行无需 Node.js。

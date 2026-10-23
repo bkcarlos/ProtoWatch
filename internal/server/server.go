@@ -24,6 +24,7 @@ import (
 	"github.com/bkcarlos/ProtoWatch/internal/buildinfo"
 	"github.com/bkcarlos/ProtoWatch/internal/capture"
 	"github.com/bkcarlos/ProtoWatch/internal/someip"
+	"github.com/bkcarlos/ProtoWatch/internal/update"
 	"github.com/bkcarlos/ProtoWatch/internal/watch"
 )
 
@@ -32,6 +33,7 @@ var assets embed.FS
 
 type Server struct {
 	// Configure before serving requests.
+	Updater        *update.Manager
 	MaxImportBytes int64
 	PCAPDir        string
 	Store          *watch.Store
@@ -49,6 +51,7 @@ func New() *Server {
 func (s *Server) Handler() http.Handler {
 	m := http.NewServeMux()
 	s.fileRoutes(m)
+	s.updateRoutes(m)
 	m.HandleFunc("GET /api/state", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.Store.Snapshot()) })
 	m.HandleFunc("GET /api/interfaces", func(w http.ResponseWriter, r *http.Request) {
 		ifs, err := net.Interfaces()
